@@ -1,5 +1,7 @@
 package com.example.todo_app
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,39 +30,87 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TodoListPage(viewModel: TodoViewModel){
-
+fun TodoListPage(viewModel: TodoViewModel) {
     val todoList by viewModel.todoList.observeAsState()
-    var inputText by remember {
-        mutableStateOf("")
+    var inputText by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf<Date?>(null) }
+    var selectedTime by remember { mutableStateOf<Date?>(null) }
+
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    val timePickerDialog = remember {
+        TimePickerDialog(context, { _, hourOfDay, minute ->
+            selectedDate?.let { date ->
+                calendar.time = date
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                calendar.set(Calendar.MINUTE, minute)
+                selectedTime = calendar.time
+            }
+        }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true)
+    }
+
+    val datePickerDialog = remember {
+        DatePickerDialog(context, { _, year, month, dayOfMonth ->
+            calendar.set(year, month, dayOfMonth)
+            selectedDate = calendar.time
+            timePickerDialog.show()
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
     }
 
     Column(
         modifier = Modifier
             .fillMaxHeight()
             .padding(8.dp)
-    ){
-
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedTextField(value = inputText, onValueChange = {
-                inputText = it
-            })
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = inputText,
+                onValueChange = {
+                    inputText = it
+                },
+                label = { Text("Title") }
+            )
+            IconButton(onClick = { datePickerDialog.show() }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.baseline_access_time_24),
+                    contentDescription = "Choose Date and Time"
+                )
+            }
             Button(onClick = {
-                viewModel.addTodo(inputText)
-                inputText = ""
+                if (inputText.isNotBlank() && selectedDate != null && selectedTime != null) {
+                    // Объединяем выбранные дату и время
+                    val finalCalendar = Calendar.getInstance()
+                    finalCalendar.time = selectedDate!!
+                    val timeCalendar = Calendar.getInstance()
+                    timeCalendar.time = selectedTime!!
+
+                    finalCalendar.set(Calendar.HOUR_OF_DAY, timeCalendar.get(Calendar.HOUR_OF_DAY))
+                    finalCalendar.set(Calendar.MINUTE, timeCalendar.get(Calendar.MINUTE))
+                    finalCalendar.set(Calendar.SECOND, 0)
+
+                    viewModel.addTodo(inputText, finalCalendar.time)
+                    inputText = ""
+                    selectedDate = null
+                    selectedTime = null
+                }
             }) {
                 Text(text = "Add")
             }
@@ -69,25 +119,24 @@ fun TodoListPage(viewModel: TodoViewModel){
         todoList?.let {
             LazyColumn(
                 content = {
-                    itemsIndexed(it){index: Int, item: Todo ->
+                    itemsIndexed(it) { index: Int, item: Todo ->
                         TodoItem(item = item, onDelete = {
                             viewModel.deleteTodo(item.id)
                         })
                     }
                 }
             )
-        }?: Text(
+        } ?: Text(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             fontSize = 16.sp,
-            text = "No items yet")
-        
+            text = "No items yet"
+        )
     }
-
 }
 
 @Composable
-fun TodoItem(item : Todo, onDelete : () -> Unit) {
+fun TodoItem(item: Todo, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -100,17 +149,20 @@ fun TodoItem(item : Todo, onDelete : () -> Unit) {
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(text = SimpleDateFormat("HH:mm:aa, dd/mm", Locale.ENGLISH).format(item.createdAt),
+            Text(
+                text = SimpleDateFormat("HH:mm, dd/MM/yyyy", Locale.ENGLISH).format(item.createdAt),
                 fontSize = 10.sp,
                 color = Color.LightGray
-                )
-            Text(text = item.title,
+            )
+            Text(
+                text = item.title,
                 fontSize = 20.sp,
                 color = Color.White
-                )
+            )
         }
         IconButton(onClick = onDelete) {
-            Icon(painter = painterResource(id = R.drawable.baseline_delete_24),
+            Icon(
+                painter = painterResource(id = R.drawable.baseline_delete_24),
                 contentDescription = "Delete",
                 tint = Color.White
             )
