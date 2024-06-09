@@ -1,20 +1,14 @@
 package com.example.todo_app
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import java.time.Instant
 import java.util.Date
 
+@Entity
 data class Todo(
-    var id: Int,
+    @PrimaryKey(autoGenerate = true)
+    var id: Int = 0,
     var title: String,
     var createdAt: Date
 )
-
-
-fun getFakeTodo() : List<Todo>{
-    return listOf<Todo>(
-        Todo(1, "First Todo", Date.from(Instant.now())),
-        Todo(2, "Second Todo", Date.from(Instant.now())),
-        Todo(3, "Third Todo", Date.from(Instant.now())),
-        Todo(4, "Forth Todo", Date.from(Instant.now()))
-    )
-}
